@@ -6,7 +6,7 @@ int main(int argc, char** argv)
 {
     int rank, count;
     const int LENGTH = 10;
-    const int msgtag = 99
+    const int msgtag = 99;
     int a[LENGTH];
 
     std::random_device rd;
