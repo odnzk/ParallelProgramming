@@ -1,37 +1,54 @@
-#include <iostream>
+#include <stdio.h>
 #include <mpi.h>
-#include <random>
+#include <cstdlib>
+#include <ctime>
 
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
-    int rank, count;
-    const int LENGTH = 10;
-    const int msgtag = 99
-    int a[LENGTH];
+    int rank;
+    int threads;
 
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_int_distribution<> dist(0, 50);
-
-    MPI_Status status;
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &threads);
 
     if (rank == 1) {
-        for (int i = 0; i < 10; ++i) {
-            a[i] = dist(gen);
-        }
-        MPI_Send(&a, 10, MPI_INT, 0, msgtag, MPI_COMM_WORLD);
-        MPI_Send(&a, 10, MPI_INT, 2, msgtag, MPI_COMM_WORLD);
-        MPI_Send(&a, 10, MPI_INT, 3, msgtag, MPI_COMM_WORLD);
-    } else {
-        MPI_Probe(1, msgtag, MPI_COMM_WORLD, &status);
-        MPI_Get_count(&status, MPI_INT, &count);
-        MPI_Recv(&a, count, MPI_INT, 1, msgtag, MPI_COMM_WORLD, &status);
+        const int LENGTH = 10;
+        int a[LENGTH];
+        srand(static_cast<unsigned int>(time(nullptr)));
 
-        for (int i = 0; i < 10; i++) {
-            printf("a[i]: %d \n", a[i]);
+        for (int i = 0; i < LENGTH; i++) {
+            a[i] = rand() % 100;
         }
+
+        printf("Array: ");
+        for (int i = 0; i < LENGTH; i++) {
+            printf("%d ", a[i]);
+        }
+        printf("\n");
+
+        for (int i = 0; i < threads; i++) {
+            if (i != 1) {
+                int send_count = LENGTH;
+                MPI_Send(&send_count, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
+                MPI_Send(a, send_count, MPI_INT, i, 1, MPI_COMM_WORLD);
+            }
+        }
+
+    } else {
+        int recv_count;
+        MPI_Status status;
+        MPI_Recv(&recv_count, 1, MPI_INT, 1, 0, MPI_COMM_WORLD, &status);
+        int* recv_data = new int[recv_count];
+        MPI_Recv(recv_data, recv_count, MPI_INT, 1, 1, MPI_COMM_WORLD, &status);
+
+        printf("Received array: ");
+        for (int i = 0; i < recv_count; i++) {
+            printf("%d ", recv_data[i]);
+        }
+        printf("\n");
+
+        delete[] recv_data;
     }
 
     MPI_Finalize();
