@@ -1,97 +1,67 @@
-#include <iostream>
-#include <string>
-#include "mpi.h"
-#include <algorithm>
+#include <stdio.h>
+#include <mpi.h>
 
-// 2.1. Написать программу, вычисляющую элементы вектора по формуле z = ax + by.
-// Векторы x=(x1, x2...x100) и y=(y1,y2..y100)
-//и задаются на нулевом процессе и равными блоками пересылаются остальным процессам, a,b -заданные числа.
-int main(int argc, char** argv)
-{
-    int rank, size;
+#define VECTOR_SIZE 30
+#define A 2.0
+#define B 3.0
 
+int main(int argc, char* argv[]) {
     MPI_Init(&argc, &argv);
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    const int senderRank = 0;
-    const int msgtag = 0;
-    const int a = 5;
-    const int b = 7;
-    const int n = 20;
+    MPI_Status status;
+    int world_size;
+    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
-    int part = n / (size - 1);
-    int sizeForLast = part;
-    if (n % (size - 1) > 0) {
-        part++;
-        sizeForLast = n % part;
-    }
+    int world_rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
-    if (rank == senderRank) {
-        int* x = new int[n];
-        int* y = new int[n];
-        int* z = new int[n];
-        for (int i = 0; i < n; ++i) {
-            x[i] = rand(0, 10);
-            y[i] = rand(0, 10);
+    int part = 5;
+
+    if (world_rank == 0) {
+        int x[VECTOR_SIZE];
+        int y[VECTOR_SIZE];
+        int res[VECTOR_SIZE];
+
+        for (int i = 0; i < VECTOR_SIZE; i++) {
+            x[i] = i - 1;
+            y[i] = i + 1;
         }
 
-        printf("x: ");
-        printArray(x, n);
-        printf("y: ");
-        printArray(y, n);
-
-        int start = 0;
-        for (int i = 0; i < size; i++) {
-            if (i == senderRank) continue;
-            int sizeToTransfer = part;
-            if (i == size - 1) sizeToTransfer = sizeForLast;
-
-            MPI_Send(&x[start], sizeToTransfer, MPI_INT, i, msgtag, MPI_COMM_WORLD);
-            MPI_Send(&y[start], sizeToTransfer, MPI_INT, i, msgtag, MPI_COMM_WORLD);
-            start += part;
-        }
-        start = 0;
-        for (int i = 0; i < size; i++) {
-            if (i == senderRank) continue;
-            int sizeToTransfer = part;
-            if (i == size - 1) sizeToTransfer = sizeForLast;
-
-            MPI_Recv(&z[start], sizeToTransfer, MPI_INT, i, msgtag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            start += part;
+        int n = 1;
+        for (int i = 0; i < VECTOR_SIZE; i += part) {
+            MPI_Send(&x[i], part, MPI_INT, n, n, MPI_COMM_WORLD);
+            MPI_Send(&y[i], part, MPI_INT, n, 2*n, MPI_COMM_WORLD);
+            n++;
         }
 
-        printf("z: ");
-        printArray(z, n);
-    }
-    else
-    {
-        int count;
-        MPI_Status status;
-
-        MPI_Probe(senderRank, msgtag, MPI_COMM_WORLD, &status);
-        MPI_Get_count(&status, MPI_INT, &count);
-
-        int* x = new int[count];
-        int* y = new int[count];
-        int* z = new int[count];
-
-        MPI_Recv(&x[0], count, MPI_INT, senderRank, msgtag, MPI_COMM_WORLD, &status);
-        MPI_Recv(&y[0], count, MPI_INT, senderRank, msgtag, MPI_COMM_WORLD, &status);
-
-        for (int i = 0; i < count; i++) {
-            z[i] = a * x[i] + b * y[i];
+        n = 1;
+        for (int i = 0; i < VECTOR_SIZE; i += part) {
+            MPI_Recv(&res[i], part, MPI_INT, n, n, MPI_COMM_WORLD, &status);
+            n++;
         }
 
-        MPI_Send(&z[0], count, MPI_INT, senderRank, msgtag, MPI_COMM_WORLD);
+        printf("Resulting vector z: ");
+        for (int i = 0; i < VECTOR_SIZE; i++) {
+            printf("%.0d ", res[i]);
+        }
+        printf("\n");
+    } else if (world_rank <= VECTOR_SIZE / part) {
+        MPI_Probe(0, world_rank, MPI_COMM_WORLD, &status);
+        int local_x[part];
+        int local_y[part];
+        int local_res[part];
+        MPI_Recv(&local_x,  part, MPI_INT, 0, world_rank, MPI_COMM_WORLD, &status);
+        MPI_Recv(&local_y, part, MPI_INT, 0, 2*world_rank, MPI_COMM_WORLD, &status);
+
+        for (int i = 0; i < part; i++) {
+            local_res[i] = A * local_x[i] + B * local_y[i];
+        }
+        MPI_Send(&local_res, part, MPI_INT, 0, world_rank, MPI_COMM_WORLD);
     }
 
     MPI_Finalize();
+    return 0;
 }
-
-void printArray(int* array, int count) {
-    for (int i = 0; i < count; i++) {
-        printf("%d ", array[i]);
-    }
-    printf("\n");
-}
+// 2.1. Написать программу, вычисляющую элементы вектора по формуле z = ax + by.
+// Векторы x=(x1, x2...x100) и y=(y1,y2..y100)
+//и задаются на нулевом процессе и равными блоками пересылаются остальным процессам, a,b -заданные числа.
