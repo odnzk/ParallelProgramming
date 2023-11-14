@@ -2,14 +2,12 @@
 #include <iostream>
 
 int main(int argc, char** argv) {
-
     int rank, size;
-
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    const int N = 120;
+    const int N = 100;
     const int part = 20;
 
     int b[N];
@@ -25,7 +23,6 @@ int main(int argc, char** argv) {
                 a[i][j] = rand() % 5 + 1;
             }
         }
-
         printf("A: \n");
         for (int i = 0; i < N; ++i) {
             for (int j = 0; j < N; ++j) {
@@ -40,8 +37,6 @@ int main(int argc, char** argv) {
             printf("%d ", b[i]);
         }
         printf("\n\n");
-
-
     }
 
     MPI_Bcast(b, N, MPI_INT, 0, MPI_COMM_WORLD);

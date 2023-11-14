@@ -1,55 +1,55 @@
+#include <stdio.h>
 #include <mpi.h>
-#include <iostream>
+#include <math.h>
 
-int main(int argc, char** argv) {
-    int result;
-    int rank;
-    int size;
+#define MATRIX_SIZE 100
 
-    MPI_Init(&argc, &argv);
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
-
-    const int N = 120;
-    const int part = 20;
-
-    int A[N][N];
-    int a[part][N];
-
-    srand(time(nullptr));
-
-    if (rank == 0) {
-        printf("A:\n");
-        for (int i = 0; i < N; i++) {
-            for (int j = 0; j < N; j++) {
-                A[i][j] = i + 1;
-                printf("%d ", A[i][j]);
-            }
-            printf("\n");
+void printMatrix(int matrix[MATRIX_SIZE][MATRIX_SIZE]) {
+    for (int i = 0; i < MATRIX_SIZE; i++) {
+        for (int j = 0; j < MATRIX_SIZE; j++) {
+            printf("%d ", matrix[i][j]);
         }
         printf("\n");
     }
-    MPI_Scatter(&A[rank * part][0], part * N, MPI_INT, &a[0][0], part * N, MPI_INT, 0, MPI_COMM_WORLD);
+}
 
-    int sum = 0;
-    int max = 0;
-    for (int i = 0; i < part; i++) {
-        sum = 0;
-        for (int j = 0; j < N; j++) {
-            sum += abs(a[i][j]);
-        }
-        if (sum > max) {
-            max = sum;
-        }
+int main(int argc, char* argv[]) {
+    int ranks;
+    int rank;
+    MPI_Init(&argc, &argv);
+    MPI_Comm_size(MPI_COMM_WORLD, &ranks);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    if (MATRIX_SIZE != ranks) {
+        printf("Invalid conditions \n");
+        MPI_Finalize();
+        return 1;
     }
 
-    MPI_Reduce(&max, &result, 1, MPI_INT, MPI_MAX, 0, MPI_COMM_WORLD);
-
+    int matrix[MATRIX_SIZE][MATRIX_SIZE];
+    int helper[MATRIX_SIZE];
     if (rank == 0) {
-        printf("||A||: %d\n", result);
+        for (int i = 0; i < MATRIX_SIZE; i++) {
+            for (int j = 0; j < MATRIX_SIZE; j++) {
+                matrix[i][j] = i + j;
+            }
+        }
+    }
+    for (int i = 0; i < MATRIX_SIZE; i++) {
+        MPI_Scatter(&matrix[i][rank], 1, MPI_INT,&helper[i], 1, MPI_INT, 0, MPI_COMM_WORLD);
+    }
+    int part = 0;
+    for (int i = 0; i < MATRIX_SIZE; i++) {
+        part += abs(helper[i]);
+    }
+
+    int global_norm;
+    MPI_Reduce(&part, &global_norm, 1, MPI_INT, MPI_MAX, 0, MPI_COMM_WORLD);
+    if (rank == 0) {
+        printMatrix(matrix);
+        printf("Norm: %d\n", global_norm);
     }
 
     MPI_Finalize();
-
     return 0;
 }
