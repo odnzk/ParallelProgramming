@@ -1,46 +1,55 @@
-#include <iostream>
-#include <cmath>
 #include <mpi.h>
-
-#define MATRIX_SIZE 100
+#include <iostream>
 
 int main(int argc, char** argv) {
-    int rank, size;
+    int result;
+    int rank;
+    int size;
+
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    double matrix[MATRIX_SIZE][MATRIX_SIZE];
+    const int N = 120;
+    const int part = 20;
+
+    int A[N][N];
+    int a[part][N];
+
+    srand(time(nullptr));
+
     if (rank == 0) {
-        for (int i = 0; i < MATRIX_SIZE; i++) {
-            for (int j = 0; j < MATRIX_SIZE; j++) {
-                matrix[i][j] = i + j + 1;
+        printf("A:\n");
+        for (int i = 0; i < N; i++) {
+            for (int j = 0; j < N; j++) {
+                A[i][j] = i + 1;
+                printf("%d ", A[i][j]);
             }
+            printf("\n");
+        }
+        printf("\n");
+    }
+    MPI_Scatter(&A[rank * part][0], part * N, MPI_INT, &a[0][0], part * N, MPI_INT, 0, MPI_COMM_WORLD);
+
+    int sum = 0;
+    int max = 0;
+    for (int i = 0; i < part; i++) {
+        sum = 0;
+        for (int j = 0; j < N; j++) {
+            sum += abs(a[i][j]);
+        }
+        if (sum > max) {
+            max = sum;
         }
     }
 
-    double localMatrix[MATRIX_SIZE / size][MATRIX_SIZE];
-    MPI_Scatter(matrix, (MATRIX_SIZE / size) * MATRIX_SIZE, MPI_DOUBLE, localMatrix, (MATRIX_SIZE / size) * MATRIX_SIZE, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-
-    double localNorms[MATRIX_SIZE / size];
-    for (int i = 0; i < MATRIX_SIZE / size; i++) {
-        localNorms[i] = 0.0;
-        for (int j = 0; j < MATRIX_SIZE; j++) {
-            localNorms[i] += std::abs(localMatrix[i][j]);
-        }
-    }
-
-    double maxLocalNorm = 0.0;
-    MPI_Reduce(localNorms, &maxLocalNorm, MATRIX_SIZE / size, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
-
-    double globalMaxNorm = 0.0;
-    MPI_Reduce(&maxLocalNorm, &globalMaxNorm, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&max, &result, 1, MPI_INT, MPI_MAX, 0, MPI_COMM_WORLD);
 
     if (rank == 0) {
-        std::cout << "Maximum Norm: " << globalMaxNorm << std::endl;
+        printf("||A||: %d\n", result);
     }
 
     MPI_Finalize();
+
     return 0;
 }
-

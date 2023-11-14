@@ -1,38 +1,43 @@
 #include <iostream>
-#include <cmath>
 #include <mpi.h>
 
-#define VECTOR_SIZE 100
-
 int main(int argc, char** argv) {
-    int rank, size;
+    int rank,ranks;
+
     MPI_Init(&argc, &argv);
+    MPI_Comm_size(MPI_COMM_WORLD, &ranks);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    double vector[VECTOR_SIZE];
+    int const n = 120;
+    int const part = 30;
+    int x[n];
+    int y[part];
+
     if (rank == 0) {
-        for (int i = 0; i < VECTOR_SIZE; i++) {
-            vector[i] = i + 1;
+        printf("x: ");
+        for (int i = 0; i < n; i++) {
+            x[i] = i * 3;
+            printf("%d ", x[i]);
         }
+        printf("\n\n");
     }
 
-    double localVector[VECTOR_SIZE / size];
-    MPI_Scatter(vector, VECTOR_SIZE / size, MPI_DOUBLE, localVector, VECTOR_SIZE / size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Scatter(&x[0], part, MPI_INT, &y[0], part, MPI_INT, 0, MPI_COMM_WORLD);
 
-    double localNorm = 0.0;
-    for (int i = 0; i < VECTOR_SIZE / size; i++) {
-        localNorm += localVector[i] * localVector[i];
+    int sum = 0;
+    for (int i = 0; i < part; i++) {
+        sum += abs(y[i]);
     }
 
-    double globalNorm = 0.0;
-    MPI_Reduce(&localNorm, &globalNorm, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    int result;
+    MPI_Reduce(&sum, &result, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 
     if (rank == 0) {
-        std::cout << "Norm: " << std::sqrt(globalNorm) << std::endl;
+        printf("||x||: %d\n\n", result);
     }
 
     MPI_Finalize();
+
     return 0;
 }
 // В следующих заданиях матрицы и векторы вещественных чисел задаются на нулевом процессе.
