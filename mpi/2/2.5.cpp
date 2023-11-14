@@ -17,7 +17,7 @@ int main(int argc, char** argv) {
     int ranks;
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_ranks(MPI_COMM_WORLD, &ranks);
+    MPI_Comm_size(MPI_COMM_WORLD, &ranks);
     MPI_Status status;
 
     if (rank == 0) {
